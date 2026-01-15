@@ -26,12 +26,19 @@ const UsersIcon = () => (
     </svg>
 );
 
+const SearchIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+);
+
 export default function CaregiversPage() {
     const [caregivers, setCaregivers] = useState([]);
     const [children, setChildren] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editModal, setEditModal] = useState({ open: false, caregiver: null });
     const [formData, setFormData] = useState({});
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         loadData();
@@ -97,6 +104,15 @@ export default function CaregiversPage() {
         }
     }
 
+    // Filtrér barnepiger baseret på søgning
+    const filteredCaregivers = caregivers.filter(cg => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        const fullName = `${cg.first_name} ${cg.last_name}`.toLowerCase();
+        const maNumber = (cg.ma_number || '').toLowerCase();
+        return fullName.includes(query) || maNumber.includes(query);
+    });
+
     return (
         <div className="space-y-8">
             <div className="flex items-center justify-between">
@@ -111,6 +127,20 @@ export default function CaregiversPage() {
                     <PlusIcon />
                     Opret barnepige
                 </button>
+            </div>
+
+            {/* Søgefelt */}
+            <div className="relative w-80">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <SearchIcon />
+                </div>
+                <input
+                    type="text"
+                    placeholder="Søg barnepige (navn eller MA-nummer)..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm w-full focus:ring-2 focus:ring-[#B54A32] focus:border-[#B54A32]"
+                />
             </div>
 
             {loading ? (
@@ -129,7 +159,7 @@ export default function CaregiversPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {caregivers.map((caregiver) => (
+                            {filteredCaregivers.map((caregiver) => (
                                 <tr key={caregiver.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-3">

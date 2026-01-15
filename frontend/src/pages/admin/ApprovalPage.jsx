@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { timeEntriesApi, childrenApi, exportApi } from '../../utils/api';
+import { timeEntriesApi, childrenApi, caregiversApi, exportApi } from '../../utils/api';
 import StatusBadge from '../../components/StatusBadge';
 import GrantStatusBadge from '../../components/GrantStatusBadge';
 import { formatDate, formatHours } from '../../utils/helpers';
@@ -35,11 +35,20 @@ const CheckMarkIcon = () => (
     </svg>
 );
 
+const SearchIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+);
+
 export default function ApprovalPage() {
     const [activeTab, setActiveTab] = useState('pending');
     const [entries, setEntries] = useState([]);
     const [children, setChildren] = useState([]);
+    const [caregivers, setCaregivers] = useState([]);
     const [selectedChild, setSelectedChild] = useState('all');
+    const [selectedCaregiver, setSelectedCaregiver] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [selectedIds, setSelectedIds] = useState([]);
     const [rejectModal, setRejectModal] = useState({ open: false, entryId: null });
@@ -47,7 +56,7 @@ export default function ApprovalPage() {
 
     useEffect(() => {
         loadData();
-    }, [activeTab, selectedChild]);
+    }, [activeTab, selectedChild, selectedCaregiver]);
 
     async function loadData() {
         setLoading(true);
@@ -56,20 +65,34 @@ export default function ApprovalPage() {
             if (selectedChild !== 'all') {
                 params.child_id = selectedChild;
             }
+            if (selectedCaregiver !== 'all') {
+                params.caregiver_id = selectedCaregiver;
+            }
 
-            const [entriesData, childrenData] = await Promise.all([
+            const [entriesData, childrenData, caregiversData] = await Promise.all([
                 timeEntriesApi.getAll(params),
-                childrenApi.getAll()
+                childrenApi.getAll(),
+                caregiversApi.getAll()
             ]);
 
             setEntries(entriesData);
             setChildren(childrenData);
+            setCaregivers(caregiversData);
         } catch (error) {
             console.error('Fejl ved indlæsning:', error);
         } finally {
             setLoading(false);
         }
     }
+
+    // Filtrér entries baseret på søgning
+    const filteredEntries = entries.filter(entry => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        const caregiverName = `${entry.caregiver_first_name} ${entry.caregiver_last_name}`.toLowerCase();
+        const maNumber = (entry.ma_number || '').toLowerCase();
+        return caregiverName.includes(query) || maNumber.includes(query);
+    });
 
     async function handleApprove(id) {
         try {
@@ -129,10 +152,10 @@ export default function ApprovalPage() {
     }
 
     function toggleSelectAll() {
-        if (selectedIds.length === entries.length) {
+        if (selectedIds.length === filteredEntries.length) {
             setSelectedIds([]);
         } else {
-            setSelectedIds(entries.map(e => e.id));
+            setSelectedIds(filteredEntries.map(e => e.id));
         }
     }
 
@@ -183,9 +206,23 @@ export default function ApprovalPage() {
                 </div>
 
                 {/* Filters */}
-                <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center gap-4">
+                <div className="p-4 bg-gray-50 border-b border-gray-100 flex flex-wrap items-center gap-4">
+                    {/* Søgefelt */}
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <SearchIcon />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Søg barnepige (navn/MA-nr.)..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm w-64 focus:ring-2 focus:ring-[#B54A32] focus:border-[#B54A32]"
+                        />
+                    </div>
+
                     <label className="text-sm text-gray-600 flex items-center gap-2">
-                        <span>Filtrer på barn:</span>
+                        <span>Barn:</span>
                         <select
                             value={selectedChild}
                             onChange={(e) => setSelectedChild(e.target.value)}
@@ -194,13 +231,29 @@ export default function ApprovalPage() {
                             <option value="all">Alle børn</option>
                             {children.map((child) => (
                                 <option key={child.id} value={child.id}>
-                                    {child.first_name} {child.last_name}
+                                    {child.first_name} {child.last_name} {child.birth_date ? `(${formatDate(child.birth_date)})` : ''}
                                 </option>
                             ))}
                         </select>
                     </label>
 
-                    {activeTab === 'pending' && entries.length > 0 && (
+                    <label className="text-sm text-gray-600 flex items-center gap-2">
+                        <span>Barnepige:</span>
+                        <select
+                            value={selectedCaregiver}
+                            onChange={(e) => setSelectedCaregiver(e.target.value)}
+                            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-[#B54A32] focus:border-[#B54A32]"
+                        >
+                            <option value="all">Alle barnepiger</option>
+                            {caregivers.map((cg) => (
+                                <option key={cg.id} value={cg.id}>
+                                    {cg.first_name} {cg.last_name} ({cg.ma_number})
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    {activeTab === 'pending' && filteredEntries.length > 0 && (
                         <button
                             onClick={handleBatchApprove}
                             disabled={selectedIds.length === 0}
@@ -218,12 +271,14 @@ export default function ApprovalPage() {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#B54A32] mx-auto"></div>
                         <p className="text-gray-500 mt-3">Indlæser...</p>
                     </div>
-                ) : entries.length === 0 ? (
+                ) : filteredEntries.length === 0 ? (
                     <div className="p-12 text-center">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                             <CheckIcon />
                         </div>
-                        <p className="text-gray-500">Ingen registreringer i denne kategori</p>
+                        <p className="text-gray-500">
+                            {searchQuery ? 'Ingen resultater for søgningen' : 'Ingen registreringer i denne kategori'}
+                        </p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -234,7 +289,7 @@ export default function ApprovalPage() {
                                         <th className="px-4 py-3">
                                             <input
                                                 type="checkbox"
-                                                checked={selectedIds.length === entries.length}
+                                                checked={selectedIds.length === filteredEntries.length && filteredEntries.length > 0}
                                                 onChange={toggleSelectAll}
                                             />
                                         </th>
@@ -253,20 +308,23 @@ export default function ApprovalPage() {
                                     {activeTab === 'approved' && (
                                         <>
                                             <th className="px-4 py-3">Godkendt af</th>
+                                            <th className="px-4 py-3">Godkendt dato</th>
                                             <th className="px-4 py-3">Lønsystem</th>
+                                            <th className="px-4 py-3">Sendt til løn</th>
                                         </>
                                     )}
                                     {activeTab === 'rejected' && (
                                         <>
                                             <th className="px-4 py-3">Afvist af</th>
+                                            <th className="px-4 py-3">Afvist dato</th>
                                             <th className="px-4 py-3">Årsag</th>
                                         </>
                                     )}
-                                    <th className="px-4 py-3">Handlinger</th>
+                                    {activeTab === 'pending' && <th className="px-4 py-3">Handlinger</th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {entries.map((entry) => (
+                                {filteredEntries.map((entry) => (
                                     <tr key={entry.id} className="hover:bg-gray-50">
                                         {activeTab === 'pending' && (
                                             <td className="px-4 py-3">
@@ -282,7 +340,14 @@ export default function ApprovalPage() {
                                         </td>
                                         <td className="px-4 py-3 text-gray-600">{entry.ma_number}</td>
                                         <td className="px-4 py-3">
-                                            {entry.child_first_name} {entry.child_last_name}
+                                            <div>
+                                                {entry.child_first_name} {entry.child_last_name}
+                                                {entry.child_birth_date && (
+                                                    <div className="text-xs text-gray-400">
+                                                        f. {formatDate(entry.child_birth_date)}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3">{formatDate(entry.date)}</td>
                                         <td className="px-4 py-3 text-sm">
@@ -297,6 +362,9 @@ export default function ApprovalPage() {
                                         {activeTab === 'approved' && (
                                             <>
                                                 <td className="px-4 py-3 text-sm text-gray-600">{entry.reviewed_by}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-600">
+                                                    {entry.reviewed_at ? formatDate(entry.reviewed_at) : '-'}
+                                                </td>
                                                 <td className="px-4 py-3">
                                                     {entry.payroll_registered ? (
                                                         <span className="inline-flex items-center justify-center w-6 h-6 bg-emerald-100 rounded-full">
@@ -311,18 +379,24 @@ export default function ApprovalPage() {
                                                         </button>
                                                     )}
                                                 </td>
+                                                <td className="px-4 py-3 text-sm text-gray-600">
+                                                    {entry.payroll_date ? formatDate(entry.payroll_date) : '-'}
+                                                </td>
                                             </>
                                         )}
                                         {activeTab === 'rejected' && (
                                             <>
                                                 <td className="px-4 py-3 text-sm">{entry.reviewed_by}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-600">
+                                                    {entry.reviewed_at ? formatDate(entry.reviewed_at) : '-'}
+                                                </td>
                                                 <td className="px-4 py-3 text-sm text-red-600">
                                                     {entry.rejection_reason}
                                                 </td>
                                             </>
                                         )}
-                                        <td className="px-4 py-3">
-                                            {activeTab === 'pending' && (
+                                        {activeTab === 'pending' && (
+                                            <td className="px-4 py-3">
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => handleApprove(entry.id)}
@@ -337,8 +411,8 @@ export default function ApprovalPage() {
                                                         Afvis
                                                     </button>
                                                 </div>
-                                            )}
-                                        </td>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>

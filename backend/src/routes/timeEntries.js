@@ -14,6 +14,7 @@ router.get('/', (req, res) => {
             SELECT te.*,
                    c.first_name as child_first_name,
                    c.last_name as child_last_name,
+                   c.birth_date as child_birth_date,
                    cg.first_name as caregiver_first_name,
                    cg.last_name as caregiver_last_name,
                    cg.ma_number
@@ -72,6 +73,7 @@ router.get('/:id', (req, res) => {
             SELECT te.*,
                    c.first_name as child_first_name,
                    c.last_name as child_last_name,
+                   c.birth_date as child_birth_date,
                    cg.first_name as caregiver_first_name,
                    cg.last_name as caregiver_last_name,
                    cg.ma_number
