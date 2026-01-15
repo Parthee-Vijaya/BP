@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { timeEntriesApi, childrenApi, caregiversApi } from '../../utils/api';
-import { formatHours } from '../../utils/helpers';
+import { formatHours, formatDate } from '../../utils/helpers';
 
 // Icons
 const ClockIcon = () => (
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
                                 <div className="text-right">
                                     <div className="font-semibold text-gray-900">{formatHours(entry.total_hours)} timer</div>
                                     <div className="text-sm text-gray-500">
-                                        {entry.date} &middot; {entry.start_time}-{entry.end_time}
+                                        {formatDate(entry.date)} &middot; {entry.start_time}-{entry.end_time}
                                     </div>
                                 </div>
                             </div>

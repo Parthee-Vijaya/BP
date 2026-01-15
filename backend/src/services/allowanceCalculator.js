@@ -105,6 +105,44 @@ function timeToMinutes(timeStr) {
     return hours * 60 + minutes;
 }
 
+/**
+ * Rund tid op til nærmeste kvarter
+ * Eksempel: 12:07 -> 12:15, 13:47 -> 14:00, 12:00 -> 12:00
+ * @param {string} timeStr - Tid i format HH:MM
+ * @returns {string} - Afrundet tid i format HH:MM
+ */
+function roundUpToQuarter(timeStr) {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+
+    // Hvis minutter allerede er 00, 15, 30 eller 45, returner uændret
+    if (minutes % 15 === 0) {
+        return timeStr;
+    }
+
+    // Rund op til nærmeste kvarter
+    const roundedMinutes = Math.ceil(minutes / 15) * 15;
+
+    if (roundedMinutes === 60) {
+        // Næste time
+        const newHours = (hours + 1) % 24;
+        return `${String(newHours).padStart(2, '0')}:00`;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`;
+}
+
+/**
+ * Rund starttid op til nærmeste kvarter (start rundes op)
+ * Rund sluttid op til nærmeste kvarter (slut rundes også op)
+ * Eksempel: 12:07-13:47 -> 12:15-14:00 = 1 time 45 min
+ */
+function roundTimesToQuarters(startTime, endTime) {
+    return {
+        roundedStart: roundUpToQuarter(startTime),
+        roundedEnd: roundUpToQuarter(endTime)
+    };
+}
+
 // Beregn overlap mellem to tidsintervaller (i minutter)
 function calculateOverlap(start1, end1, start2, end2) {
     const overlapStart = Math.max(start1, start2);
@@ -120,8 +158,11 @@ function calculateOverlap(start1, end1, start2, end2) {
  * @returns {Object} - Beregnede timer fordelt på kategorier
  */
 export function calculateAllowances(dateStr, startTime, endTime) {
-    const startMinutes = timeToMinutes(startTime);
-    let endMinutes = timeToMinutes(endTime);
+    // Rund tider op til nærmeste kvarter
+    const { roundedStart, roundedEnd } = roundTimesToQuarters(startTime, endTime);
+
+    const startMinutes = timeToMinutes(roundedStart);
+    let endMinutes = timeToMinutes(roundedEnd);
 
     // Håndter midnat-overgang (sluttid næste dag)
     if (endMinutes <= startMinutes) {

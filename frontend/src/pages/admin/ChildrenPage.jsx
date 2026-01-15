@@ -34,6 +34,37 @@ const SearchIcon = () => (
     </svg>
 );
 
+// PSP-element validering og formatering
+// Format: XX-0000000000-0000 (2 bogstaver - 10 tal - 4 tal)
+const PSP_REGEX = /^[A-Za-z]{2}-\d{10}-\d{4}$/;
+
+function validatePspElement(value) {
+    if (!value) return { valid: true, error: '' }; // Valgfrit felt
+    if (PSP_REGEX.test(value)) {
+        return { valid: true, error: '' };
+    }
+    return { valid: false, error: 'Format: XX-0000000000-0000 (f.eks. XG-0000010031-0003)' };
+}
+
+function formatPspElement(value) {
+    // Fjern alt undtagen bogstaver og tal
+    let cleaned = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    // Indsæt bindestreger automatisk
+    let formatted = '';
+    if (cleaned.length > 0) {
+        formatted = cleaned.substring(0, 2); // Første 2 bogstaver
+    }
+    if (cleaned.length > 2) {
+        formatted += '-' + cleaned.substring(2, 12); // Næste 10 tal
+    }
+    if (cleaned.length > 12) {
+        formatted += '-' + cleaned.substring(12, 16); // Sidste 4 tal
+    }
+
+    return formatted;
+}
+
 export default function ChildrenPage() {
     const [children, setChildren] = useState([]);
     const [caregivers, setCaregivers] = useState([]);
@@ -41,6 +72,7 @@ export default function ChildrenPage() {
     const [editModal, setEditModal] = useState({ open: false, child: null });
     const [formData, setFormData] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
+    const [pspError, setPspError] = useState('');
 
     useEffect(() => {
         loadData();
@@ -74,6 +106,7 @@ export default function ChildrenPage() {
             frame_hours: 0,
             caregiver_ids: []
         });
+        setPspError('');
         setEditModal({ open: true, child: null });
     }
 
@@ -90,10 +123,18 @@ export default function ChildrenPage() {
             frame_hours: child.frame_hours || 0,
             caregiver_ids: child.caregivers?.map(c => c.id) || []
         });
+        setPspError('');
         setEditModal({ open: true, child });
     }
 
     async function handleSave() {
+        // Valider PSP-element
+        const pspValidation = validatePspElement(formData.psp_element);
+        if (!pspValidation.valid) {
+            setPspError(pspValidation.error);
+            return;
+        }
+
         try {
             if (editModal.child) {
                 await childrenApi.update(editModal.child.id, formData);
@@ -294,9 +335,24 @@ export default function ChildrenPage() {
                                     <input
                                         type="text"
                                         value={formData.psp_element}
-                                        onChange={(e) => setFormData({ ...formData, psp_element: e.target.value })}
-                                        className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#B54A32] focus:border-[#B54A32]"
+                                        onChange={(e) => {
+                                            const formatted = formatPspElement(e.target.value);
+                                            setFormData({ ...formData, psp_element: formatted });
+                                            const validation = validatePspElement(formatted);
+                                            setPspError(validation.valid ? '' : validation.error);
+                                        }}
+                                        placeholder="XX-0000000000-0000"
+                                        maxLength={18}
+                                        className={`w-full border rounded-lg px-3 py-2 focus:ring-2 ${
+                                            pspError
+                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                : 'border-gray-200 focus:ring-[#B54A32] focus:border-[#B54A32]'
+                                        }`}
                                     />
+                                    {pspError && (
+                                        <p className="mt-1 text-xs text-red-600">{pspError}</p>
+                                    )}
+                                    <p className="mt-1 text-xs text-gray-400">Format: XX-0000000000-0000 (f.eks. XG-0000010031-0003)</p>
                                 </div>
                             </div>
 
