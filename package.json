@@ -1,0 +1,25 @@
+{
+  "name": "barnepige-timeregistrering",
+  "version": "1.0.0",
+  "description": "Timeregistreringssystem for barnepiger - Kalundborg Kommune",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run start --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "install:all": "npm install",
+    "clean": "rm -rf node_modules package-lock.json frontend/node_modules frontend/package-lock.json backend/node_modules backend/package-lock.json",
+    "build": "npm run build --workspace=frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
